@@ -1,0 +1,4 @@
+youtube_transcript_api
+youtubesearchpython
+pandas
+tqdm
