@@ -24,6 +24,15 @@ def get_transcript(video_id):
     return transcript["text"].sum()
 
 
+def load_filter():
+    nlp = spacy.load("de_core_news_sm")
+    filterwords = spacy.lang.de.stop_words.STOP_WORDS
+    with open("docs/filterwords.txt", encoding="utf-8", errors="ignore") as d:
+        filterwords.update(d.readlines()[9:])
+    with open("docs/german_stopwords_full.txt", encoding="utf-8", errors="ignore") as d:
+        filterwords.update(d.readlines()[9:])
+
+
 def scrape(channel_id, to_csv=True, verbose=True):
     verboseprint = define_print(verbose=verbose)
     assert len(channel_id) == 24, "length of channel id should be 24"
@@ -66,3 +75,28 @@ def scrape(channel_id, to_csv=True, verbose=True):
         df.to_csv("data/raw/" + medium + "_raw.csv")
 
     return df
+
+
+def lemmatize(text, filterwords):
+    """
+    tokenizes and lemmatizes german input text
+    :param text: raw input text (german)
+    :return: list of lemmatized tokens from input text
+    """
+    doc = nlp(str(text))
+    lemmas_tmp = [token.lemma_.lower() for token in doc]
+    lemmas = [
+        lemma for lemma in lemmas_tmp if lemma.isalpha() and lemma not in filterwords
+    ]
+    return " ".join(lemmas)
+
+
+def preprocess(df, to_csv=True, verbose=True):
+    tqdm.pandas()
+    verboseprint = define_print(verbose=verbose)
+
+    verboseprint(f'lemmatizing transcript data of {len(df.index)}...')
+    df["preprocessed"] = df["transcript"].progress_apply(lemmatize)
+
+    if to_csv:
+        df.to_csv('data/preprocessed/' + df.iloc[0]['medium'] + '_preprocessed.csv')
