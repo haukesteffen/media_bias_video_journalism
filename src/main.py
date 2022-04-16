@@ -1,11 +1,17 @@
 from utils import scrape
-import pandas as pd
+
+channels = [
+    "UCE7b8qctaEGmST38-sfdOsA",
+    "UC1w6pNGiiLdZgyNpXUnA4Zw",
+    "UCeqKIgPQfNInOswGRWt48kQ",
+    "UC4zcMHyrT_xyWlgy5WGpFFQ",
+    "UCXJBRgiZRZvfilIGQ4wN5CQ",
+]
 
 
 def main():
-    df = pd.DataFrame({"name": ["Junge Freiheit"], "id": ["UCXJBRgiZRZvfilIGQ4wN5CQ"]})
-    test = scrape(channels_df=df, to_csv=True)
-    print(test.head())
+    for channel in channels:
+        scrape(channel)
 
 
 if __name__ == "__main__":
