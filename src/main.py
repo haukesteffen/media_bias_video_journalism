@@ -1,17 +1,11 @@
-from utils import scrape
-
-channels = [
-    "UCE7b8qctaEGmST38-sfdOsA",
-    "UC1w6pNGiiLdZgyNpXUnA4Zw",
-    "UCeqKIgPQfNInOswGRWt48kQ",
-    "UC4zcMHyrT_xyWlgy5WGpFFQ",
-    "UCXJBRgiZRZvfilIGQ4wN5CQ",
-]
+from utils import preprocess, load_filter
+import pandas as pd
 
 
 def main():
-    for channel in channels:
-        scrape(channel)
+    
+    df = pd.read_csv('data/raw/Junge Freiheit_raw.csv')
+    preprocess(df)
 
 
 if __name__ == "__main__":

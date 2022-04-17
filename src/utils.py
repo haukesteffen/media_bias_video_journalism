@@ -2,7 +2,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtubesearchpython import Playlist, Channel, playlist_from_channel_id
 import pandas as pd
 from tqdm import tqdm
-
+import spacy
 
 def define_print(verbose=True):
     if verbose:
@@ -31,6 +31,7 @@ def load_filter():
         filterwords.update(d.readlines()[9:])
     with open("docs/german_stopwords_full.txt", encoding="utf-8", errors="ignore") as d:
         filterwords.update(d.readlines()[9:])
+    return filterwords
 
 
 def scrape(channel_id, to_csv=True, verbose=True):
@@ -77,12 +78,14 @@ def scrape(channel_id, to_csv=True, verbose=True):
     return df
 
 
-def lemmatize(text, filterwords):
+def lemmatize(text):
     """
     tokenizes and lemmatizes german input text
     :param text: raw input text (german)
     :return: list of lemmatized tokens from input text
     """
+    nlp = spacy.load("de_core_news_sm")
+    filterwords = load_filter()
     doc = nlp(str(text))
     lemmas_tmp = [token.lemma_.lower() for token in doc]
     lemmas = [
@@ -95,7 +98,7 @@ def preprocess(df, to_csv=True, verbose=True):
     tqdm.pandas()
     verboseprint = define_print(verbose=verbose)
 
-    verboseprint(f'lemmatizing transcript data of {len(df.index)}...')
+    verboseprint(f'lemmatizing transcript data of {len(df.index)} videos...')
     df["preprocessed"] = df["transcript"].progress_apply(lemmatize)
 
     if to_csv:
