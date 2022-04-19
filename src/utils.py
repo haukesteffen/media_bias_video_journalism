@@ -1,8 +1,11 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtubesearchpython import Playlist, Channel, playlist_from_channel_id
+from sklearn.utils import shuffle
 import pandas as pd
 from tqdm import tqdm
 import spacy
+from pandarallel import pandarallel
+
 
 def define_print(verbose=True):
     if verbose:
@@ -28,10 +31,10 @@ def load_filter():
     nlp = spacy.load("de_core_news_sm")
     filterwords = spacy.lang.de.stop_words.STOP_WORDS
     with open("docs/filterwords.txt", encoding="utf-8", errors="ignore") as d:
-        filterwords.update(d.readlines()[9:])
+        filterwords.update(d.read().split())
     with open("docs/german_stopwords_full.txt", encoding="utf-8", errors="ignore") as d:
-        filterwords.update(d.readlines()[9:])
-    return filterwords
+        filterwords.update(d.read().split()[53:])
+    return list(set(filterwords))
 
 
 def scrape(channel_id, to_csv=True, verbose=True):
@@ -78,28 +81,44 @@ def scrape(channel_id, to_csv=True, verbose=True):
     return df
 
 
-def lemmatize(text):
+def lemmatize(text, nlp, filterwords):
     """
     tokenizes and lemmatizes german input text
     :param text: raw input text (german)
     :return: list of lemmatized tokens from input text
     """
-    nlp = spacy.load("de_core_news_sm")
-    filterwords = load_filter()
-    doc = nlp(str(text))
-    lemmas_tmp = [token.lemma_.lower() for token in doc]
-    lemmas = [
-        lemma for lemma in lemmas_tmp if lemma.isalpha() and lemma not in filterwords
-    ]
+
+    with nlp.select_pipes(enable="lemmatizer"):
+        doc = nlp(text)
+    lemmas = [token.lemma_.lower() for token in doc]
+    lemmas = [lemma for lemma in lemmas if lemma.isalpha() and lemma not in filterwords]
     return " ".join(lemmas)
 
 
 def preprocess(df, to_csv=True, verbose=True):
-    tqdm.pandas()
+    # tqdm.pandas()
     verboseprint = define_print(verbose=verbose)
+    pandarallel.initialize(progress_bar=True)
+    filterwords = load_filter()
+    nlp = spacy.load("de_core_news_sm")
 
-    verboseprint(f'lemmatizing transcript data of {len(df.index)} videos...')
-    df["preprocessed"] = df["transcript"].progress_apply(lemmatize)
+    verboseprint(f"lemmatizing transcript data of {len(df.index)} videos...")
+    # df["preprocessed"] = df["transcript"].progress_apply(lemmatize)
+    df["preprocessed"] = df["transcript"].parallel_apply(
+        lemmatize, args=(nlp, filterwords)
+    )
 
     if to_csv:
-        df.to_csv('data/preprocessed/' + df.iloc[0]['medium'] + '_preprocessed.csv')
+        df.to_csv("data/preprocessed/" + df.iloc[0]["medium"] + "_preprocessed.csv")
+    return df
+
+
+def create_samples(dfs, n_samples=[10, 50, 100, 300], to_csv=True):
+    data = pd.DataFrame()
+    for n in n_samples:
+        for df in dfs:
+            tmp = df.sample(n=n, random_state=42)
+            data = pd.concat([data, tmp])
+        data = shuffle(data, random_state=42)
+        if to_csv:
+            data.to_csv("data//samples//sample" + str(n) + ".csv")

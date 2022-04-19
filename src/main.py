@@ -1,10 +1,9 @@
-from utils import preprocess, load_filter
+from utils import preprocess
 import pandas as pd
 
 
 def main():
-    
-    df = pd.read_csv('data/raw/Junge Freiheit_raw.csv')
+    df = pd.read_csv("data/raw/BILD_raw.csv", index_col=0)
     preprocess(df)
 
 
