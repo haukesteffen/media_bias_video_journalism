@@ -114,11 +114,14 @@ def preprocess(df, to_csv=True, verbose=True):
 
 
 def create_samples(dfs, n_samples=[10, 50, 100, 300], to_csv=True):
-    data = pd.DataFrame()
-    for n in n_samples:
+    df_list = []
+    for n in tqdm(n_samples):
+        data = pd.DataFrame()
         for df in dfs:
             tmp = df.sample(n=n, random_state=42)
             data = pd.concat([data, tmp])
         data = shuffle(data, random_state=42)
         if to_csv:
             data.to_csv("data//samples//sample" + str(n) + ".csv")
+        df_list.append(data)
+    return df_list
