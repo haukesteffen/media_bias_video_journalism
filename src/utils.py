@@ -5,6 +5,36 @@ import pandas as pd
 from tqdm import tqdm
 import spacy
 from pandarallel import pandarallel
+import joblib
+import numpy as np
+
+topic_dict = {
+    0: "Misc1",
+    1: "Ampelregierung",
+    2: "Innenpolitik",
+    3: "Familie",
+    4: "Gender",
+    5: "Wahlen",
+    6: "Justiz",
+    7: "Medien",
+    8: "Impfung",
+    9: "Abspann",
+    10: "Live",
+    11: "Lokal",
+    12: "Befragung",
+    13: "Krieg",
+    14: "Angela Merkel",
+    15: "Fußball",
+    16: "Ukrainekonflikt",
+    17: "Wirtschaft",
+    18: "Schule",
+    19: "COVID-19 Maßnahmen",
+    20: "Interview",
+    21: "USA",
+    22: "Misc2",
+    23: "International",
+    24: "CDU/CSU",
+}
 
 
 def define_print(verbose=True):
@@ -96,14 +126,12 @@ def lemmatize(text, nlp, filterwords):
 
 
 def preprocess(df, to_csv=True, verbose=True):
-    # tqdm.pandas()
     verboseprint = define_print(verbose=verbose)
     pandarallel.initialize(progress_bar=True)
     filterwords = load_filter()
     nlp = spacy.load("de_core_news_sm")
 
     verboseprint(f"lemmatizing transcript data of {len(df.index)} videos...")
-    # df["preprocessed"] = df["transcript"].progress_apply(lemmatize)
     df["preprocessed"] = df["transcript"].parallel_apply(
         lemmatize, args=(nlp, filterwords)
     )
@@ -125,3 +153,31 @@ def create_samples(dfs, n_samples=[10, 50, 100, 300], to_csv=True):
             data.to_csv("data//samples//sample" + str(n) + ".csv")
         df_list.append(data)
     return df_list
+
+
+def extract_topics(df, to_csv=True, verbose=True):
+    verboseprint = define_print(verbose=verbose)
+    df.dropna(inplace=True)
+
+    verboseprint("loading cv model...")
+    cv_model = joblib.load("data/cv_model.pkl")
+
+    verboseprint("loading lda model...")
+    lda_model = joblib.load("data/lda_model.pkl")
+
+    verboseprint(f"getting topics for {df.shape[0]} videos...")
+    lda = cv_model.transform(df["preprocessed"].to_list())
+    lda = lda_model.transform(lda)
+    lda = pd.DataFrame(lda)
+    lda.rename(columns=topic_dict, inplace=True)
+    lda["dominant topic"] = [
+        topic_dict[topic] for topic in np.argmax(lda.values, axis=1)
+    ]
+    lda["id"] = df["id"].to_list()
+
+    verboseprint("merging data...")
+    df = df.merge(lda, how="outer", on="id")
+    if to_csv:
+        verboseprint("saving csv file...")
+        df.to_csv("data/labeled/" + df["medium"].iloc[0] + "_labeled.csv")
+    return df
