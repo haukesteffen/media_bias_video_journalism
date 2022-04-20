@@ -209,7 +209,7 @@ def sort_topics(dfs, to_csv=True, verbose=True):
 def get_N_matrix(topic, verbose=True):
     verboseprint = define_print(verbose=verbose)
     MEDIA = ['NachDenkSeiten', 'DER SPIEGEL', 'ZDFheute Nachrichten', 'BILD', 'Junge Freiheit']
-    cv = CountVectorizer(max_df=0.9, min_df=10, ngram_range=(1,3))
+    cv = CountVectorizer(max_df=0.9, min_df=10, max_features=10000, ngram_range=(1,3))
 
     verboseprint('importing dataframe with topic ' + topic + ' and fitting model...')
     df = pd.read_csv('data/sorted/'+topic+'.csv', index_col=0)
