@@ -1,10 +1,10 @@
-from utils import extract_topics
+from utils import get_N_matrix
 import pandas as pd
 
 
 def main():
-    df = pd.read_csv("data/preprocessed/Junge Freiheit_preprocessed.csv", index_col=0)
-    extract_topics(df)
+    N = get_N_matrix('Ukrainekonflikt')
+    print(N)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtubesearchpython import Playlist, Channel, playlist_from_channel_id
 from sklearn.utils import shuffle
+from sklearn.feature_extraction.text import CountVectorizer
 import pandas as pd
 from tqdm import tqdm
 import spacy
@@ -33,7 +34,7 @@ topic_dict = {
     21: "USA",
     22: "Misc2",
     23: "International",
-    24: "CDU/CSU",
+    24: "CDU-CSU",
 }
 
 
@@ -181,3 +182,54 @@ def extract_topics(df, to_csv=True, verbose=True):
         verboseprint("saving csv file...")
         df.to_csv("data/labeled/" + df["medium"].iloc[0] + "_labeled.csv")
     return df
+
+
+def sort_topics(dfs, to_csv=True, verbose=True):
+    verboseprint = define_print(verbose=verbose)
+    dfs_dict = {}
+
+    verboseprint('initializing dataframes...')
+    for _, topic in topic_dict.items():
+        dfs_dict[topic] = pd.DataFrame()
+
+    verboseprint(f'iterating through {len(dfs)} input dataframes...')
+    for df in dfs:
+        verboseprint('sorting ' + df['medium'].iloc[0] + 'dataframe by topic...')
+        for _, topic in topic_dict.items():
+            dfs_dict[topic] = pd.concat([dfs_dict[topic], df[df['dominant topic'] == topic]])
+    
+    if to_csv:
+        verboseprint('saving csv files...')
+        for _, topic in topic_dict.items():
+            dfs_dict[topic].to_csv('data/sorted/'+topic+'.csv')
+    
+    return dfs_dict
+
+
+def get_N_matrix(topic, verbose=True):
+    verboseprint = define_print(verbose=verbose)
+    MEDIA = ['NachDenkSeiten', 'DER SPIEGEL', 'ZDFheute Nachrichten', 'BILD', 'Junge Freiheit']
+    cv = CountVectorizer(max_df=0.9, min_df=10, ngram_range=(1,3))
+
+    verboseprint('importing dataframe with topic ' + topic + ' and fitting model...')
+    df = pd.read_csv('data/sorted/'+topic+'.csv', index_col=0)
+    cv.fit(df['preprocessed'])
+
+    verboseprint('restructuring dataframe with ' + str(len(df)) + ' transcripts...')
+    df['preprocessed'] = df['preprocessed'] + ' '
+    df = df[['medium', 'preprocessed', 'dominant topic']]
+    df_grouped = df.groupby(['medium', 'dominant topic']).sum()
+
+    df = pd.DataFrame(index=MEDIA, columns=['preprocessed'])
+    for medium in MEDIA:
+        df.loc[medium] = df_grouped.loc[medium].loc[topic]['preprocessed']
+
+    verboseprint('counting n-gram occurences...')
+    N_matrix = cv.transform(df['preprocessed'].values)
+
+    verboseprint('exporting dataframe...')
+    N_df = pd.DataFrame(data=N_matrix.toarray().transpose(),
+                        columns=df.index,
+                        index=cv.get_feature_names_out())
+
+    return N_df
