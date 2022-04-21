@@ -188,76 +188,170 @@ def sort_topics(dfs, to_csv=True, verbose=True):
     verboseprint = define_print(verbose=verbose)
     dfs_dict = {}
 
-    verboseprint('initializing dataframes...')
+    verboseprint("initializing dataframes...")
     for _, topic in topic_dict.items():
         dfs_dict[topic] = pd.DataFrame()
 
-    verboseprint(f'iterating through {len(dfs)} input dataframes...')
+    verboseprint(f"iterating through {len(dfs)} input dataframes...")
     for df in dfs:
-        verboseprint('sorting ' + df['medium'].iloc[0] + 'dataframe by topic...')
+        verboseprint("sorting " + df["medium"].iloc[0] + "dataframe by topic...")
         for _, topic in topic_dict.items():
-            dfs_dict[topic] = pd.concat([dfs_dict[topic], df[df['dominant topic'] == topic]])
-    
+            dfs_dict[topic] = pd.concat(
+                [dfs_dict[topic], df[df["dominant topic"] == topic]]
+            )
+
     if to_csv:
-        verboseprint('saving csv files...')
+        verboseprint("saving csv files...")
         for _, topic in topic_dict.items():
-            dfs_dict[topic].to_csv('data/sorted/'+topic+'.csv')
-    
+            dfs_dict[topic].to_csv("data/sorted/" + topic + ".csv")
+
     return dfs_dict
 
 
 def get_N_matrix(topic, verbose=True, drop_subsumed=True):
     verboseprint = define_print(verbose=verbose)
-    MEDIA = ['NachDenkSeiten', 'DER SPIEGEL', 'ZDFheute Nachrichten', 'BILD', 'Junge Freiheit']
-    cv = CountVectorizer(max_df=0.9, min_df=10, max_features=10000, ngram_range=(1,3))
+    MEDIA = [
+        "NachDenkSeiten",
+        "DER SPIEGEL",
+        "ZDFheute Nachrichten",
+        "BILD",
+        "Junge Freiheit",
+    ]
+    cv = CountVectorizer(max_df=0.9, min_df=10, max_features=10000, ngram_range=(1, 3))
 
-    verboseprint('importing dataframe with topic ' + topic + ' and fitting model...')
-    df = pd.read_csv('data/sorted/'+topic+'.csv', index_col=0)
-    cv.fit(df['preprocessed'])
+    verboseprint("importing dataframe with topic " + topic + " and fitting model...")
+    df = pd.read_csv("data/sorted/" + topic + ".csv", index_col=0)
+    cv.fit(df["preprocessed"])
 
-    verboseprint('restructuring dataframe with ' + str(len(df)) + ' transcripts...')
-    df['preprocessed'] = df['preprocessed'] + ' '
-    df = df[['medium', 'preprocessed', 'dominant topic']]
-    df_grouped = df.groupby(['medium', 'dominant topic']).sum()
+    verboseprint("restructuring dataframe with " + str(len(df)) + " transcripts...")
+    df["preprocessed"] = df["preprocessed"] + " "
+    df = df[["medium", "preprocessed", "dominant topic"]]
+    df_grouped = df.groupby(["medium", "dominant topic"]).sum()
 
-    df = pd.DataFrame(index=MEDIA, columns=['preprocessed'])
+    df = pd.DataFrame(index=MEDIA, columns=["preprocessed"])
     for medium in MEDIA:
-        df.loc[medium] = df_grouped.loc[medium].loc[topic]['preprocessed']
+        df.loc[medium] = df_grouped.loc[medium].loc[topic]["preprocessed"]
 
-    verboseprint('counting n-gram occurences...')
-    N_matrix = cv.transform(df['preprocessed'].values)
-    N_df = pd.DataFrame(data=N_matrix.toarray().transpose(),
-                        columns=df.index,
-                        index=cv.get_feature_names_out())
+    verboseprint("counting n-gram occurences...")
+    N_matrix = cv.transform(df["preprocessed"].values)
+    N_df = pd.DataFrame(
+        data=N_matrix.toarray().transpose(),
+        columns=df.index,
+        index=cv.get_feature_names_out(),
+    )
 
     if drop_subsumed:
-        N_df = N_df.reset_index().rename(columns={'index':'phrase'})
-        N_df['n_gram'] = N_df['phrase'].apply(str.split).apply(len)
-        N_df['count'] = N_df[['NachDenkSeiten', 'DER SPIEGEL', 'ZDFheute Nachrichten', 'BILD', 'Junge Freiheit']].sum(axis=1)
+        N_df = N_df.reset_index().rename(columns={"index": "phrase"})
+        N_df["n_gram"] = N_df["phrase"].apply(str.split).apply(len)
+        N_df["count"] = N_df[
+            [
+                "NachDenkSeiten",
+                "DER SPIEGEL",
+                "ZDFheute Nachrichten",
+                "BILD",
+                "Junge Freiheit",
+            ]
+        ].sum(axis=1)
 
-        monograms = N_df[N_df['n_gram'] == 1]
-        bigrams = N_df[N_df['n_gram'] == 2]
-        trigrams = N_df[N_df['n_gram'] == 3]
+        monograms = N_df[N_df["n_gram"] == 1]
+        bigrams = N_df[N_df["n_gram"] == 2]
+        trigrams = N_df[N_df["n_gram"] == 3]
 
-        verboseprint('extracting bigrams and trigrams...')
-        bigram_words = list(set([word for bigram_sublist in bigrams['phrase'].apply(str.split).tolist() for word in bigram_sublist]))
-        trigram_words = list(set([word for trigram_sublist in trigrams['phrase'].apply(str.split).tolist() for word in trigram_sublist]))
+        verboseprint("extracting bigrams and trigrams...")
+        bigram_words = list(
+            set(
+                [
+                    word
+                    for bigram_sublist in bigrams["phrase"].apply(str.split).tolist()
+                    for word in bigram_sublist
+                ]
+            )
+        )
+        trigram_words = list(
+            set(
+                [
+                    word
+                    for trigram_sublist in trigrams["phrase"].apply(str.split).tolist()
+                    for word in trigram_sublist
+                ]
+            )
+        )
 
-        verboseprint('extracting subsumed n-grams...')
-        monograms_in_bigrams = monograms[monograms['phrase'].isin(bigram_words)]
-        monograms_in_trigrams = monograms[monograms['phrase'].isin(trigram_words)]
+        verboseprint("extracting subsumed n-grams...")
+        monograms_in_bigrams = monograms[monograms["phrase"].isin(bigram_words)]
+        monograms_in_trigrams = monograms[monograms["phrase"].isin(trigram_words)]
 
-        bigrams_in_trigrams_words = list(set([bigram_word for bigram_word in bigram_words if bigram_word in trigram_words]))
-        bigrams_in_trigrams_mask = bigrams['phrase'].apply(lambda bigram: True if bigram.split()[0] in bigrams_in_trigrams_words or bigram.split()[1] in bigrams_in_trigrams_words else False)
+        bigrams_in_trigrams_words = list(
+            set(
+                [
+                    bigram_word
+                    for bigram_word in bigram_words
+                    if bigram_word in trigram_words
+                ]
+            )
+        )
+        bigrams_in_trigrams_mask = bigrams["phrase"].apply(
+            lambda bigram: True
+            if bigram.split()[0] in bigrams_in_trigrams_words
+            or bigram.split()[1] in bigrams_in_trigrams_words
+            else False
+        )
         bigrams_in_trigrams = bigrams[bigrams_in_trigrams_mask]
 
         threshold = 0.7
-        verboseprint(f'filtering n-grams which are subsumed more than {int(100*threshold)}% of the time...')
-        monograms_in_bigrams_above_threshold = list(set([monogram['phrase'] for _, monogram in monograms_in_bigrams.iterrows() for _, bigram in bigrams.iterrows() if monogram['phrase'] in bigram['phrase'].split() and bigram['count'] > threshold*monogram['count']]))
-        monograms_in_trigrams_above_threshold = list(set([monogram['phrase'] for _, monogram in monograms_in_trigrams.iterrows() for _, trigram in trigrams.iterrows() if monogram['phrase'] in trigram['phrase'].split() and trigram['count'] > threshold*monogram['count']]))
-        bigrams_in_trigrams_above_threshold = list(set([bigram['phrase'] for _, bigram in bigrams_in_trigrams.iterrows() for _, trigram in trigrams.iterrows() if (bigram['phrase'] in " ".join(trigram['phrase'].split()[:2]) or bigram['phrase'] in " ".join(trigram['phrase'].split()[-2:])) and trigram['count'] > threshold*bigram['count']]))
-        n_grams_above_threshold = list(set(np.append(np.append(monograms_in_bigrams_above_threshold, monograms_in_trigrams_above_threshold), bigrams_in_trigrams_above_threshold)))
+        verboseprint(
+            f"filtering n-grams which are subsumed more than {int(100*threshold)}% of the time..."
+        )
+        monograms_in_bigrams_above_threshold = list(
+            set(
+                [
+                    monogram["phrase"]
+                    for _, monogram in monograms_in_bigrams.iterrows()
+                    for _, bigram in bigrams.iterrows()
+                    if monogram["phrase"] in bigram["phrase"].split()
+                    and bigram["count"] > threshold * monogram["count"]
+                ]
+            )
+        )
+        monograms_in_trigrams_above_threshold = list(
+            set(
+                [
+                    monogram["phrase"]
+                    for _, monogram in monograms_in_trigrams.iterrows()
+                    for _, trigram in trigrams.iterrows()
+                    if monogram["phrase"] in trigram["phrase"].split()
+                    and trigram["count"] > threshold * monogram["count"]
+                ]
+            )
+        )
+        bigrams_in_trigrams_above_threshold = list(
+            set(
+                [
+                    bigram["phrase"]
+                    for _, bigram in bigrams_in_trigrams.iterrows()
+                    for _, trigram in trigrams.iterrows()
+                    if (
+                        bigram["phrase"] in " ".join(trigram["phrase"].split()[:2])
+                        or bigram["phrase"] in " ".join(trigram["phrase"].split()[-2:])
+                    )
+                    and trigram["count"] > threshold * bigram["count"]
+                ]
+            )
+        )
+        n_grams_above_threshold = list(
+            set(
+                np.append(
+                    np.append(
+                        monograms_in_bigrams_above_threshold,
+                        monograms_in_trigrams_above_threshold,
+                    ),
+                    bigrams_in_trigrams_above_threshold,
+                )
+            )
+        )
 
-        N_df.drop(N_df[N_df['phrase'].isin(n_grams_above_threshold)].index, inplace = True)
-        N_df.set_index('phrase').drop(columns=['n_gram', 'count'])
+        N_df.drop(
+            N_df[N_df["phrase"].isin(n_grams_above_threshold)].index, inplace=True
+        )
+        N_df.set_index("phrase").drop(columns=["n_gram", "count"])
     return N_df

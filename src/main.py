@@ -3,7 +3,7 @@ import pandas as pd
 
 
 def main():
-    N = get_N_matrix('Ukrainekonflikt')
+    N = get_N_matrix("Ukrainekonflikt")
     print(N)
 
 
