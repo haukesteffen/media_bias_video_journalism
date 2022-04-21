@@ -226,8 +226,6 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
 
     verboseprint('counting n-gram occurences...')
     N_matrix = cv.transform(df['preprocessed'].values)
-
-    verboseprint('exporting dataframe...')
     N_df = pd.DataFrame(data=N_matrix.toarray().transpose(),
                         columns=df.index,
                         index=cv.get_feature_names_out())
@@ -241,9 +239,11 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
         bigrams = N_df[N_df['n_gram'] == 2]
         trigrams = N_df[N_df['n_gram'] == 3]
 
+        verboseprint('extracting bigrams and trigrams...')
         bigram_words = list(set([word for bigram_sublist in bigrams['phrase'].apply(str.split).tolist() for word in bigram_sublist]))
         trigram_words = list(set([word for trigram_sublist in trigrams['phrase'].apply(str.split).tolist() for word in trigram_sublist]))
 
+        verboseprint('extracting subsumed n-grams...')
         monograms_in_bigrams = monograms[monograms['phrase'].isin(bigram_words)]
         monograms_in_trigrams = monograms[monograms['phrase'].isin(trigram_words)]
 
@@ -252,6 +252,7 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
         bigrams_in_trigrams = bigrams[bigrams_in_trigrams_mask]
 
         threshold = 0.7
+        verboseprint(f'filtering n-grams which are subsumed more than {int(100*threshold)}% of the time...')
         monograms_in_bigrams_above_threshold = list(set([monogram['phrase'] for _, monogram in monograms_in_bigrams.iterrows() for _, bigram in bigrams.iterrows() if monogram['phrase'] in bigram['phrase'].split() and bigram['count'] > threshold*monogram['count']]))
         monograms_in_trigrams_above_threshold = list(set([monogram['phrase'] for _, monogram in monograms_in_trigrams.iterrows() for _, trigram in trigrams.iterrows() if monogram['phrase'] in trigram['phrase'].split() and trigram['count'] > threshold*monogram['count']]))
         bigrams_in_trigrams_above_threshold = list(set([bigram['phrase'] for _, bigram in bigrams_in_trigrams.iterrows() for _, trigram in trigrams.iterrows() if (bigram['phrase'] in " ".join(trigram['phrase'].split()[:2]) or bigram['phrase'] in " ".join(trigram['phrase'].split()[-2:])) and trigram['count'] > threshold*bigram['count']]))
@@ -259,5 +260,4 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
 
         N_df.drop(N_df[N_df['phrase'].isin(n_grams_above_threshold)].index, inplace = True)
         N_df.set_index('phrase').drop(columns=['n_gram', 'count'])
-
     return N_df
