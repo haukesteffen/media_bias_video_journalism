@@ -257,7 +257,7 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
         bigrams_in_trigrams_above_threshold = list(set([bigram['phrase'] for _, bigram in bigrams_in_trigrams.iterrows() for _, trigram in trigrams.iterrows() if (bigram['phrase'] in " ".join(trigram['phrase'].split()[:2]) or bigram['phrase'] in " ".join(trigram['phrase'].split()[-2:])) and trigram['count'] > threshold*bigram['count']]))
         n_grams_above_threshold = list(set(np.append(np.append(monograms_in_bigrams_above_threshold, monograms_in_trigrams_above_threshold), bigrams_in_trigrams_above_threshold)))
 
-        N_df.drop(N_df[N_f['phrase'].isin(n_grams_above_threshold)].index, inplace = True)
+        N_df.drop(N_df[N_df['phrase'].isin(n_grams_above_threshold)].index, inplace = True)
         N_df.set_index('phrase').drop(columns=['n_gram', 'count'])
 
     return N_df
