@@ -171,9 +171,12 @@ def extract_topics(df, to_csv=True, verbose=True):
     lda = lda_model.transform(lda)
     lda = pd.DataFrame(lda)
     lda.rename(columns=topic_dict, inplace=True)
-    lda["dominant topic"] = [
-        topic_dict[topic] for topic in np.argmax(lda.values, axis=1)
-    ]
+    dominant_topic_list = [topic_dict[topic] for topic in np.argmax(lda.values, axis=1)]
+    dominant_topic_mask = np.max(lda.values, axis=1)<0.3
+    lda['dominant topic'] = dominant_topic_list
+    lda.loc[dominant_topic_mask, 'dominant topic'] = 'None'
+
+    #lda['dominant topic'] = lda.apply(lambda row: np.argmax(row.values) if np.max(row.values) > 0.3 else 'None')
     lda["id"] = df["id"].to_list()
 
     verboseprint("merging data...")
@@ -192,6 +195,8 @@ def sort_topics(dfs, to_csv=True, verbose=True):
     for _, topic in topic_dict.items():
         dfs_dict[topic] = pd.DataFrame()
 
+    dfs_dict['None'] = pd.DataFrame()
+
     verboseprint(f"iterating through {len(dfs)} input dataframes...")
     for df in dfs:
         verboseprint("sorting " + df["medium"].iloc[0] + "dataframe by topic...")
@@ -199,11 +204,15 @@ def sort_topics(dfs, to_csv=True, verbose=True):
             dfs_dict[topic] = pd.concat(
                 [dfs_dict[topic], df[df["dominant topic"] == topic]]
             )
+        dfs_dict['None'] = pd.concat(
+            [dfs_dict['None'], df[df["dominant topic"] == 'None']]
+        )
 
     if to_csv:
         verboseprint("saving csv files...")
         for _, topic in topic_dict.items():
             dfs_dict[topic].to_csv("data/sorted/" + topic + ".csv")
+        dfs_dict['None'].to_csv('data/sorted/None.csv')
 
     return dfs_dict
 
