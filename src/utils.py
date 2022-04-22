@@ -10,14 +10,14 @@ import joblib
 import numpy as np
 
 topic_dict = {
-    0: "Misc1",
+    0: "Bildung",
     1: "Ampelregierung",
     2: "Innenpolitik",
     3: "Familie",
     4: "Gender",
     5: "Wahlen",
     6: "Justiz",
-    7: "Medien",
+    7: "Soziale Medien",
     8: "Impfung",
     9: "Abspann",
     10: "Live",
@@ -32,7 +32,7 @@ topic_dict = {
     19: "COVID-19 Maßnahmen",
     20: "Interview",
     21: "USA",
-    22: "Misc2",
+    22: "Flüchtlingskrise",
     23: "International",
     24: "CDU-CSU",
 }
@@ -353,5 +353,6 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
         N_df.drop(
             N_df[N_df["phrase"].isin(n_grams_above_threshold)].index, inplace=True
         )
-        N_df.set_index("phrase").drop(columns=["n_gram", "count"])
+        N_df.set_index("phrase", inplace=True)
+        N_df.drop(columns=["n_gram", "count"], inplace=True)
     return N_df
