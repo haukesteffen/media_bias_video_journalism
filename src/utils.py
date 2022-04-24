@@ -172,11 +172,11 @@ def extract_topics(df, to_csv=True, verbose=True):
     lda = pd.DataFrame(lda)
     lda.rename(columns=topic_dict, inplace=True)
     dominant_topic_list = [topic_dict[topic] for topic in np.argmax(lda.values, axis=1)]
-    dominant_topic_mask = np.max(lda.values, axis=1)<0.3
-    lda['dominant topic'] = dominant_topic_list
-    lda.loc[dominant_topic_mask, 'dominant topic'] = 'None'
+    dominant_topic_mask = np.max(lda.values, axis=1) < 0.3
+    lda["dominant topic"] = dominant_topic_list
+    lda.loc[dominant_topic_mask, "dominant topic"] = "None"
 
-    #lda['dominant topic'] = lda.apply(lambda row: np.argmax(row.values) if np.max(row.values) > 0.3 else 'None')
+    # lda['dominant topic'] = lda.apply(lambda row: np.argmax(row.values) if np.max(row.values) > 0.3 else 'None')
     lda["id"] = df["id"].to_list()
 
     verboseprint("merging data...")
@@ -195,7 +195,7 @@ def sort_topics(dfs, to_csv=True, verbose=True):
     for _, topic in topic_dict.items():
         dfs_dict[topic] = pd.DataFrame()
 
-    dfs_dict['None'] = pd.DataFrame()
+    dfs_dict["None"] = pd.DataFrame()
 
     verboseprint(f"iterating through {len(dfs)} input dataframes...")
     for df in dfs:
@@ -204,15 +204,15 @@ def sort_topics(dfs, to_csv=True, verbose=True):
             dfs_dict[topic] = pd.concat(
                 [dfs_dict[topic], df[df["dominant topic"] == topic]]
             )
-        dfs_dict['None'] = pd.concat(
-            [dfs_dict['None'], df[df["dominant topic"] == 'None']]
+        dfs_dict["None"] = pd.concat(
+            [dfs_dict["None"], df[df["dominant topic"] == "None"]]
         )
 
     if to_csv:
         verboseprint("saving csv files...")
         for _, topic in topic_dict.items():
             dfs_dict[topic].to_csv("data/sorted/" + topic + ".csv")
-        dfs_dict['None'].to_csv('data/sorted/None.csv')
+        dfs_dict["None"].to_csv("data/sorted/None.csv")
 
     return dfs_dict
 
@@ -240,9 +240,14 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
     df = pd.DataFrame(index=MEDIA, columns=["preprocessed"])
     for medium in MEDIA:
         try:
-            df.loc[medium] = df_grouped.loc[medium].loc[topic]['preprocessed']
+            df.loc[medium] = df_grouped.loc[medium].loc[topic]["preprocessed"]
         except:
-            print(medium + ' does not have any videos categorized under category \'' + topic + '\'.')
+            print(
+                medium
+                + " does not have any videos categorized under category '"
+                + topic
+                + "'."
+            )
             df.drop(index=medium, inplace=True)
             MEDIA.remove(medium)
 
@@ -255,16 +260,17 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
     )
 
     if drop_medium_specific:
-        verboseprint('dropping medium-specific n-grams that occur in one medium at least 90% of the time...')
-        N_df['sum'] = N_df.sum(axis=1)
+        verboseprint(
+            "dropping medium-specific n-grams that occur in one medium at least 90% of the time..."
+        )
+        N_df["sum"] = N_df.sum(axis=1)
         mask = {}
         specific_mask = np.full(len(N_df.index), False)
         for medium in MEDIA:
-            mask[medium] = N_df[medium] > 0.9*N_df['sum']
+            mask[medium] = N_df[medium] > 0.9 * N_df["sum"]
             specific_mask = specific_mask | mask[medium]
         N_df.drop(N_df.index[specific_mask], inplace=True)
-        N_df.drop(columns=['sum'], inplace=True)
-
+        N_df.drop(columns=["sum"], inplace=True)
 
     if drop_subsumed:
         N_df = N_df.reset_index().rename(columns={"index": "phrase"})
@@ -376,10 +382,10 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
 
 def filter_N_by_information_score(N_df, n=1000, verbose=True):
     verboseprint = define_print(verbose=verbose)
-    verboseprint('filtering ' + str(n) + ' most discriminative phrases from sample...')
+    verboseprint("filtering " + str(n) + " most discriminative phrases from sample...")
     n_i = len(N_df.index)
     n_j = len(N_df.columns)
-    P_ij = N_df/N_df.to_numpy().sum()
+    P_ij = N_df / N_df.to_numpy().sum()
     P_i = P_ij.sum(axis=1)
     P_j = P_ij.sum(axis=0)
 
@@ -391,6 +397,6 @@ def filter_N_by_information_score(N_df, n=1000, verbose=True):
 
     I = pd.DataFrame(I, index=N_df.index, columns=N_df.columns)
     I = I.fillna(0.0)
-    I['sum'] = I.sum(axis=1)
-    I.sort_values(by='sum', ascending=False, inplace=True)
+    I["sum"] = I.sum(axis=1)
+    I.sort_values(by="sum", ascending=False, inplace=True)
     return N_df.loc[I.index[:n]]
