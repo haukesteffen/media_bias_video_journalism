@@ -217,7 +217,7 @@ def sort_topics(dfs, to_csv=True, verbose=True):
     return dfs_dict
 
 
-def get_N_matrix(topic, verbose=True, drop_subsumed=True):
+def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=True):
     verboseprint = define_print(verbose=verbose)
     MEDIA = [
         "NachDenkSeiten",
@@ -239,7 +239,12 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
 
     df = pd.DataFrame(index=MEDIA, columns=["preprocessed"])
     for medium in MEDIA:
-        df.loc[medium] = df_grouped.loc[medium].loc[topic]["preprocessed"]
+        try:
+            df.loc[medium] = df_grouped.loc[medium].loc[topic]['preprocessed']
+        except:
+            print(medium + ' does not have any videos categorized under category \'' + topic + '\'.')
+            df.drop(index=medium, inplace=True)
+            MEDIA.remove(medium)
 
     verboseprint("counting n-gram occurences...")
     N_matrix = cv.transform(df["preprocessed"].values)
@@ -249,24 +254,26 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True):
         index=cv.get_feature_names_out(),
     )
 
+    if drop_medium_specific:
+        verboseprint('dropping medium-specific n-grams that occur in one medium at least 90% of the time...')
+        N_df['sum'] = N_df.sum(axis=1)
+        mask = {}
+        specific_mask = np.full(len(N_df.index), False)
+        for medium in MEDIA:
+            mask[medium] = N_df[medium] > 0.9*N_df['sum']
+            specific_mask = specific_mask | mask[medium]
+        N_df.drop(N_df.index[specific_mask], inplace=True)
+        N_df.drop(columns=['sum'], inplace=True)
+
+
     if drop_subsumed:
         N_df = N_df.reset_index().rename(columns={"index": "phrase"})
         N_df["n_gram"] = N_df["phrase"].apply(str.split).apply(len)
-        N_df["count"] = N_df[
-            [
-                "NachDenkSeiten",
-                "DER SPIEGEL",
-                "ZDFheute Nachrichten",
-                "BILD",
-                "Junge Freiheit",
-            ]
-        ].sum(axis=1)
+        N_df["count"] = N_df[MEDIA].sum(axis=1)
 
         monograms = N_df[N_df["n_gram"] == 1]
         bigrams = N_df[N_df["n_gram"] == 2]
         trigrams = N_df[N_df["n_gram"] == 3]
-
-        verboseprint("extracting bigrams and trigrams...")
         bigram_words = list(
             set(
                 [
