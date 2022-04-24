@@ -372,3 +372,25 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
         N_df.set_index("phrase", inplace=True)
         N_df.drop(columns=["n_gram", "count"], inplace=True)
     return N_df
+
+
+def filter_N_by_information_score(N_df, n=1000, verbose=True):
+    verboseprint = define_print(verbose=verbose)
+    verboseprint('filtering ' + str(n) + ' most discriminative phrases from sample...')
+    n_i = len(N_df.index)
+    n_j = len(N_df.columns)
+    P_ij = N_df/N_df.to_numpy().sum()
+    P_i = P_ij.sum(axis=1)
+    P_j = P_ij.sum(axis=0)
+
+    I = np.zeros((n_i, n_j))
+
+    for i in range(n_i):
+        for j in range(n_j):
+            I[i][j] = P_ij.values[i][j] * np.log2(P_ij.values[i][j] / P_i[i] / P_j[j])
+
+    I = pd.DataFrame(I, index=N_df.index, columns=N_df.columns)
+    I = I.fillna(0.0)
+    I['sum'] = I.sum(axis=1)
+    I.sort_values(by='sum', ascending=False, inplace=True)
+    return N_df.loc[I.index[:n]]
