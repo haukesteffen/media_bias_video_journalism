@@ -1,19 +1,37 @@
-# from utils import extract_topics, sort_topics
-from utils import get_N_matrix, filter_N_by_information_score
+from utils import preprocess, scrape
 import pandas as pd
 
+channels = {
+    'junge Welt': 'UC_wVoja0mx0IFOP8s1nfRSg',
+    'ZEIT ONLINE': 'UC_YnP7DDnKzkkVl3BaHiZoQ',
+    'faz': 'UCcPcua2PF7hzik2TeOBx3uw',
+    'Süddeutsche Zeitung': 'UC6bx8B0W0x_5NQFAF3Nbd-A',
+    'NZZ Neue Zürcher Zeitung': 'UCK1aTcR0AckQRLTlK0c4fuQ',
+    'WELT': 'UCZMsvbAhhRblVGXmEXW8TSA',
+    'Bayerischer Rundfunk': 'UCZuFrqyZWfw_Zf0OnXWUXyQ',
+    'Der Tagesspiegel': 'UCFemltyr6criZZsWFHUSHPQ',
+    'Tagesschau': 'UC5NOEUbkLheQcaaRldYW5GA',
+    'ARD': 'UCqmQ1b96-PNH4coqgHTuTlA',
+    'ZDFinfo Dokus & Reportagen': 'UC7FeuS5wwfSR9IwOPkBV7SQ',
+    'ZDF': 'UC_EnhS-vNDc6Eo9nyQHC2YQ',
+    'ntv Nachrichten': 'UCSeil5V81-mEGB1-VNR7YEA',
+    'stern TV': 'UC2cJbBzyHM48MVFB6eOW9og',
+    'RTL': 'UC2w2teNMpadicMg3Sd_yiyg',
+    'FOCUS Online': 'UCgAPgHNmQSG_ySHRiOVeF4Q',
+    'COMPACTTV': 'UCgvFsn6bRKqND1cW3HpzDrA',
+    'taz': 'UCPzGYQqM_lZ3mJvi89SF6mg',
+    'NachDenkSeiten': 'UCE7b8qctaEGmST38-sfdOsA',
+    'DER SPIEGEL': 'UC1w6pNGiiLdZgyNpXUnA4Zw',
+    'ZDFheute Nachrichten': 'UCeqKIgPQfNInOswGRWt48kQ',
+    'BILD': 'UC4zcMHyrT_xyWlgy5WGpFFQ',
+    'Junge Freiheit': 'UCXJBRgiZRZvfilIGQ4wN5CQ',
+}
 
 def main():
-    """media = ['NachDenkSeiten', 'DER SPIEGEL', 'ZDFheute Nachrichten', 'BILD', 'Junge Freiheit']
-    dfs = [pd.read_csv('data/preprocessed/'+medium+'_preprocessed.csv', index_col=0) for medium in media]
-    for df in dfs:
-        extract_topics(df)
-
-    dfs = [pd.read_csv('data/labeled/'+medium+'_labeled.csv', index_col=0) for medium in media]
-    sort_topics(dfs)"""
-
-    N = filter_N_by_information_score(get_N_matrix("Ukrainekonflikt"))
-    print(N)
+    #scrape(channels['WELT'])
+    for channel, _ in channels.items():
+        df = pd.read_csv('data/raw/'+channel+'_raw.csv', index_col=0)
+        preprocess(df)
 
 
 if __name__ == "__main__":
