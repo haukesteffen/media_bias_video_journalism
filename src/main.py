@@ -1,5 +1,7 @@
-from utils import preprocess, scrape
+from utils import sort_topics, extract_topics
 import pandas as pd
+import joblib
+
 
 channels = {
     'junge Welt': 'UC_wVoja0mx0IFOP8s1nfRSg',
@@ -28,12 +30,14 @@ channels = {
 }
 
 def main():
+    cv_model = joblib.load('data/cv_model.pkl')
+    lda_model = joblib.load('data/lda_model.pkl')
     dfs = []
     for channel, _ in channels.items():
         df = pd.read_csv('data/preprocessed/'+channel+'_preprocessed.csv', index_col=0)
         dfs.append(df)
-    concat_df = pd.concat(dfs)
-    concat_df.to_csv('data/preprocessed/concat.csv')
+        extract_topics(df, cv_model=cv_model, lda_model=lda_model)
+    sort_topics(dfs)
 
 if __name__ == "__main__":
     main()

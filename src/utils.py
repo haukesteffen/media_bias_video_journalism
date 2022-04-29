@@ -10,33 +10,22 @@ import joblib
 import numpy as np
 
 topic_dict = {
-    0: "Bildung",
-    1: "Ampelregierung",
-    2: "Innenpolitik",
-    3: "Familie",
-    4: "Gender",
-    5: "Wahlen",
-    6: "Justiz",
-    7: "Soziale Medien",
-    8: "Impfung",
-    9: "Abspann",
-    10: "Live",
-    11: "Lokal",
-    12: "Befragung",
-    13: "Krieg",
-    14: "Angela Merkel",
-    15: "Fußball",
-    16: "Ukrainekonflikt",
-    17: "Wirtschaft",
-    18: "Schule",
-    19: "COVID-19 Maßnahmen",
-    20: "Interview",
-    21: "USA",
-    22: "Flüchtlingskrise",
-    23: "International",
-    24: "CDU-CSU",
+    0: 'News',
+    1: 'US Präsident',
+    2: 'Kunst & Literatur',
+    3: 'Wetter & Fußball',
+    4: 'Wirtschaft',
+    5: 'Justiz',
+    6: 'Europpa',
+    7: 'Ukrainekonflikt',
+    8: 'Familie',
+    9: 'Impfung',
+    10: 'Interview',
+    11: 'Innenpolitik',
+    12: 'Bundeskanzler',
+    13: 'Parteienpolitik',
+    14: 'Coronamaßnahmen',
 }
-
 
 def define_print(verbose=True):
     if verbose:
@@ -156,15 +145,9 @@ def create_samples(dfs, n_samples=[10, 50, 100, 300], to_csv=True):
     return df_list
 
 
-def extract_topics(df, to_csv=True, verbose=True):
+def extract_topics(df, cv_model = joblib.load("data/cv_model.pkl"), lda_model = joblib.load("data/lda_model.pkl"), to_csv=True, verbose=True):
     verboseprint = define_print(verbose=verbose)
     df.dropna(inplace=True)
-
-    verboseprint("loading cv model...")
-    cv_model = joblib.load("data/cv_model.pkl")
-
-    verboseprint("loading lda model...")
-    lda_model = joblib.load("data/lda_model.pkl")
 
     verboseprint(f"getting topics for {df.shape[0]} videos...")
     lda = cv_model.transform(df["preprocessed"].to_list())
@@ -199,7 +182,7 @@ def sort_topics(dfs, to_csv=True, verbose=True):
 
     verboseprint(f"iterating through {len(dfs)} input dataframes...")
     for df in dfs:
-        verboseprint("sorting " + df["medium"].iloc[0] + "dataframe by topic...")
+        verboseprint("sorting " + df["medium"].iloc[0] + " dataframe by topic...")
         for _, topic in topic_dict.items():
             dfs_dict[topic] = pd.concat(
                 [dfs_dict[topic], df[df["dominant topic"] == topic]]
