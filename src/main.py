@@ -28,11 +28,12 @@ channels = {
 }
 
 def main():
-    #scrape(channels['WELT'])
+    dfs = []
     for channel, _ in channels.items():
-        df = pd.read_csv('data/raw/'+channel+'_raw.csv', index_col=0)
-        preprocess(df)
-
+        df = pd.read_csv('data/preprocessed/'+channel+'_preprocessed.csv', index_col=0)
+        dfs.append(df)
+    concat_df = pd.concat(dfs)
+    concat_df.to_csv('data/preprocessed/concat.csv')
 
 if __name__ == "__main__":
     main()
