@@ -1,5 +1,12 @@
-from utils import sort_topics, extract_topics
+import warnings
+warnings.filterwarnings('ignore')
+
+from utils import get_N_matrix, filter_N_by_information_score, sort_topics, extract_topics
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import TruncatedSVD
+import seaborn as sns
+import matplotlib.pyplot as plt
 import joblib
 
 
@@ -30,14 +37,30 @@ channels = {
 }
 
 def main():
-    cv_model = joblib.load('data/cv_model.pkl')
-    lda_model = joblib.load('data/lda_model.pkl')
-    dfs = []
-    for channel, _ in channels.items():
-        df = pd.read_csv('data/preprocessed/'+channel+'_preprocessed.csv', index_col=0)
-        dfs.append(df)
-        extract_topics(df, cv_model=cv_model, lda_model=lda_model)
-    sort_topics(dfs)
+    topic = 'Wirtschaft'
+    N_df = get_N_matrix(topic=topic)
+    N_df = filter_N_by_information_score(N_df)
+    scaler = StandardScaler()
+    model = TruncatedSVD(n_components=3)
+
+    N_scaled = scaler.fit_transform(N_df.values)
+    N_df_trunc = model.fit_transform(N_scaled)
+
+    sns.set(palette="coolwarm", style='whitegrid')
+    sns.scatterplot(
+        model.components_[0], 
+        model.components_[1], 
+        hue=N_df.columns,
+        palette='coolwarm',
+        ).set(title=f'Thema "{topic}" - Hauptachsen 0 und 1')
+    plt.figure()
+    sns.scatterplot(
+        model.components_[1], 
+        model.components_[2], 
+        hue=N_df.columns,
+        palette='coolwarm',
+        ).set(title=f'Thema "{topic}" - Hauptachsen 1 und 2')
+    plt.show()
 
 if __name__ == "__main__":
     main()

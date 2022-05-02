@@ -10,22 +10,47 @@ import joblib
 import numpy as np
 
 topic_dict = {
-    0: 'News',
-    1: 'US Präsident',
+    0: 'Tech',
+    1: 'Internationale Wahlen',
     2: 'Kunst & Literatur',
     3: 'Wetter & Fußball',
     4: 'Wirtschaft',
     5: 'Justiz',
-    6: 'Europpa',
+    6: 'International',
     7: 'Ukrainekonflikt',
     8: 'Familie',
     9: 'Impfung',
     10: 'Interview',
     11: 'Innenpolitik',
-    12: 'Bundeskanzler',
+    12: 'Wahlen in Deutschland',
     13: 'Parteienpolitik',
     14: 'Coronamaßnahmen',
 }
+
+media = [
+    'junge Welt',
+    "NachDenkSeiten",
+    'taz',
+    'Süddeutsche Zeitung',
+    'stern TV',
+    "DER SPIEGEL",
+    'Der Tagesspiegel',
+    'ARD',
+    'Tagesschau',
+    'ZDF',
+    "ZDFheute Nachrichten",
+    'Bayerischer Rundfunk',
+    'ntv Nachrichten',
+    'RTL',
+    'FOCUS Online',
+    'ZEIT ONLINE',
+    'faz',
+    'WELT',
+    "BILD",
+    'NZZ Neue Zürcher Zeitung',
+    "Junge Freiheit",
+    'COMPACTTV'
+]
 
 def define_print(verbose=True):
     if verbose:
@@ -202,13 +227,7 @@ def sort_topics(dfs, to_csv=True, verbose=True):
 
 def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=True):
     verboseprint = define_print(verbose=verbose)
-    MEDIA = [
-        "NachDenkSeiten",
-        "DER SPIEGEL",
-        "ZDFheute Nachrichten",
-        "BILD",
-        "Junge Freiheit",
-    ]
+    MEDIA = media
     cv = CountVectorizer(max_df=0.9, min_df=10, max_features=10000, ngram_range=(1, 3))
 
     verboseprint("importing dataframe with topic " + topic + " and fitting model...")
@@ -221,6 +240,7 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
     df_grouped = df.groupby(["medium", "dominant topic"]).sum()
 
     df = pd.DataFrame(index=MEDIA, columns=["preprocessed"])
+    empty_media = []
     for medium in MEDIA:
         try:
             df.loc[medium] = df_grouped.loc[medium].loc[topic]["preprocessed"]
@@ -232,7 +252,10 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
                 + "'."
             )
             df.drop(index=medium, inplace=True)
-            MEDIA.remove(medium)
+            empty_media.append(medium)
+
+    for empty_medium in empty_media:
+        MEDIA.remove(empty_medium)
 
     verboseprint("counting n-gram occurences...")
     N_matrix = cv.transform(df["preprocessed"].values)
@@ -246,14 +269,13 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
         verboseprint(
             "dropping medium-specific n-grams that occur in one medium at least 90% of the time..."
         )
-        N_df["sum"] = N_df.sum(axis=1)
+        N_sum = N_df.sum(axis=1)
         mask = {}
         specific_mask = np.full(len(N_df.index), False)
+        mask_df = N_df.apply(lambda x: x>0.9*N_sum)
         for medium in MEDIA:
-            mask[medium] = N_df[medium] > 0.9 * N_df["sum"]
-            specific_mask = specific_mask | mask[medium]
+            specific_mask = specific_mask | mask_df[medium].values
         N_df.drop(N_df.index[specific_mask], inplace=True)
-        N_df.drop(columns=["sum"], inplace=True)
 
     if drop_subsumed:
         N_df = N_df.reset_index().rename(columns={"index": "phrase"})
