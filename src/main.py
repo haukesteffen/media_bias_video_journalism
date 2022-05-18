@@ -30,13 +30,32 @@ def scrape_videos(channel_id):
     df.loc[:, ["title","duration","date","description","category"]] = df['id'].parallel_apply(fetch_video_info).to_list()
     return df
 
+def transcript_by_minute(transcript):
+    transcript_by_minute = {}
+    for segment in transcript:
+        minute = int(np.floor(segment['start']/60.0))
+        if minute not in transcript_by_minute:
+            transcript_by_minute[minute] = ''
+        segment['minute'] = minute
+        transcript_by_minute[segment['minute']] += (segment['text'] + ' ')
+    return transcript_by_minute
+
+def get_transcript_by_minute_df(df):
+    df = df.dropna(subset=['transcript'])
+    df['transcript_by_minute'] = df['transcript'].parallel_apply(transcript_by_minute)
+    temp_df = pd.DataFrame([*df['transcript_by_minute']], df.index).stack()\
+      .rename_axis([None,'minute']).reset_index(1, name='transcript')
+    new_df = pd.concat([temp_df, df.drop(columns=['transcript', 'transcript_by_minute'])], join='outer', axis=1)
+    new_df = new_df[['medium', 'id', 'title', 'description', 'duration', 'date', 'category', 'minute', 'transcript']]
+    return new_df
+
 channels = {
-    #'junge Welt': 'UC_wVoja0mx0IFOP8s1nfRSg',
-    #'ZEIT ONLINE': 'UC_YnP7DDnKzkkVl3BaHiZoQ',
-    #'faz': 'UCcPcua2PF7hzik2TeOBx3uw',
-    #'Süddeutsche Zeitung': 'UC6bx8B0W0x_5NQFAF3Nbd-A',
-    #'NZZ Neue Zürcher Zeitung': 'UCK1aTcR0AckQRLTlK0c4fuQ',
-    #'WELT': 'UCZMsvbAhhRblVGXmEXW8TSA',
+    'junge Welt': 'UC_wVoja0mx0IFOP8s1nfRSg',
+    'ZEIT ONLINE': 'UC_YnP7DDnKzkkVl3BaHiZoQ',
+    'faz': 'UCcPcua2PF7hzik2TeOBx3uw',
+    'Süddeutsche Zeitung': 'UC6bx8B0W0x_5NQFAF3Nbd-A',
+    'NZZ Neue Zürcher Zeitung': 'UCK1aTcR0AckQRLTlK0c4fuQ',
+    'WELT': 'UCZMsvbAhhRblVGXmEXW8TSA',
     'Bayerischer Rundfunk': 'UCZuFrqyZWfw_Zf0OnXWUXyQ',
     'Der Tagesspiegel': 'UCFemltyr6criZZsWFHUSHPQ',
     'Tagesschau': 'UC5NOEUbkLheQcaaRldYW5GA',
@@ -58,9 +77,9 @@ channels = {
 
 def main():
     for name, id in channels.items():
-        df = scrape_videos(id)
-        medium = df.iloc[0]['medium']
-        df.to_pickle(f'data/raw/{medium}.pkl')
+        df = pd.read_pickle(f'data/raw/{name}.pkl')
+        df_new = get_transcript_by_minute_df(df)
+        df_new.to_pickle(f'data/topics_by_minute/{name}_topics_by_minute.pkl')
 
 if __name__ == "__main__":
     main()
