@@ -1,5 +1,5 @@
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtubesearchpython import Playlist, Channel, playlist_from_channel_id
+from youtubesearchpython import Playlist, Channel, Video, playlist_from_channel_id
 from sklearn.utils import shuffle
 from sklearn.feature_extraction.text import CountVectorizer
 import pandas as pd
@@ -102,15 +102,22 @@ def scrape(channel_id, to_csv=True, verbose=True):
         "id": [],
         "duration": [],
         "transcript": [],
+        "date": [],
+        "description": [],
+        "category": [],
     }
     for video in tqdm(playlist.videos):
         except_counter = 0
         try:
-            transcript_dict["transcript"].append(get_transcript(video["id"]))
+            transcript_dict["transcript"].append(YouTubeTranscriptApi.get_transcript(video['id'], languages=["de"]))
             transcript_dict["medium"].append(medium)
             transcript_dict["title"].append(video.get("title"))
             transcript_dict["id"].append(video.get("id"))
             transcript_dict["duration"].append(video.get("duration"))
+            videoInfo = Video.getInfo(video['id'])
+            transcript_dict['date'].append(videoInfo['publishDate'])
+            transcript_dict['category'].append(videoInfo['category'])
+            transcript_dict['description'].append(videoInfo['description'])
         except:
             except_counter += 1
 
@@ -140,7 +147,7 @@ def lemmatize(text, nlp, filterwords):
     return " ".join(lemmas)
 
 
-def preprocess(df, to_csv=True, verbose=True):
+def preprocess(df, to_csv=True, to_pickle=False, verbose=True):
     verboseprint = define_print(verbose=verbose)
     pandarallel.initialize(progress_bar=True)
     filterwords = load_filter()
@@ -153,6 +160,9 @@ def preprocess(df, to_csv=True, verbose=True):
 
     if to_csv:
         df.to_csv("data/preprocessed/" + df.iloc[0]["medium"] + "_preprocessed.csv")
+
+    if to_pickle:
+        df.to_pickle("data/preprocessed/" + df.iloc[0]["medium"] + "_preprocessed.pkl")
     return df
 
 
@@ -170,7 +180,7 @@ def create_samples(dfs, n_samples=[10, 50, 100, 300], to_csv=True):
     return df_list
 
 
-def extract_topics(df, cv_model = joblib.load("data/cv_model.pkl"), lda_model = joblib.load("data/lda_model.pkl"), to_csv=True, verbose=True):
+def extract_topics(df, cv_model, lda_model, to_csv=True, verbose=True):
     verboseprint = define_print(verbose=verbose)
     df.dropna(inplace=True)
 
@@ -195,32 +205,31 @@ def extract_topics(df, cv_model = joblib.load("data/cv_model.pkl"), lda_model = 
     return df
 
 
-def sort_topics(dfs, to_csv=True, verbose=True):
+def sort_topics(df, to_csv=True, to_pickle=False, verbose=True):
     verboseprint = define_print(verbose=verbose)
     dfs_dict = {}
+    topics = df['topic'].unique()
 
     verboseprint("initializing dataframes...")
-    for _, topic in topic_dict.items():
+    for topic in topics:
         dfs_dict[topic] = pd.DataFrame()
 
     dfs_dict["None"] = pd.DataFrame()
 
-    verboseprint(f"iterating through {len(dfs)} input dataframes...")
-    for df in dfs:
-        verboseprint("sorting " + df["medium"].iloc[0] + " dataframe by topic...")
-        for _, topic in topic_dict.items():
-            dfs_dict[topic] = pd.concat(
-                [dfs_dict[topic], df[df["dominant topic"] == topic]]
-            )
-        dfs_dict["None"] = pd.concat(
-            [dfs_dict["None"], df[df["dominant topic"] == "None"]]
-        )
+    verboseprint(f"iterating through input dataframe with {len(df.index)} values...")
+    for topic in topics:
+        dfs_dict[topic] = df[df['topic'] == topic]
 
     if to_csv:
         verboseprint("saving csv files...")
-        for _, topic in topic_dict.items():
+        for topic in topics:
             dfs_dict[topic].to_csv("data/sorted/" + topic + ".csv")
         dfs_dict["None"].to_csv("data/sorted/None.csv")
+
+    if to_pickle:
+        verboseprint("saving pkl files...")
+        for topic in topics:
+            dfs_dict[topic].to_pickle("data/sorted/" + topic + ".pkl")
 
     return dfs_dict
 
@@ -231,13 +240,16 @@ def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=T
     cv = CountVectorizer(max_df=0.9, min_df=10, max_features=10000, ngram_range=(1, 3))
 
     verboseprint("importing dataframe with topic " + topic + " and fitting model...")
-    df = pd.read_csv("data/sorted/" + topic + ".csv", index_col=0)
+    try:
+        df = pd.read_csv("data/sorted/" + topic + ".csv", index_col=0)
+    except:
+        df = pd.read_pickle("data/sorted/" + topic + ".pkl")
     cv.fit(df["preprocessed"])
 
     verboseprint("restructuring dataframe with " + str(len(df)) + " transcripts...")
     df["preprocessed"] = df["preprocessed"] + " "
-    df = df[["medium", "preprocessed", "dominant topic"]]
-    df_grouped = df.groupby(["medium", "dominant topic"]).sum()
+    df = df[["medium", "preprocessed", "topic"]]
+    df_grouped = df.groupby(["medium", "topic"]).sum()
 
     df = pd.DataFrame(index=MEDIA, columns=["preprocessed"])
     empty_media = []
