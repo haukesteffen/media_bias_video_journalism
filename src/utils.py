@@ -66,7 +66,7 @@ def get_transcript(video_id):
     :param video_id: String of YouTube video ID
     :return: Pandas DataFrame of Transcript
     """
-    transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=["de"])
+    transcript = YouTubeTranscriptApi.get_transcript(video_id=video_id, languages=["de"])
     transcript = pd.DataFrame(transcript)
     transcript["text"] = transcript["text"] + " "
     return transcript["text"].sum()
@@ -147,7 +147,7 @@ def lemmatize(text, nlp, filterwords):
     return " ".join(lemmas)
 
 
-def preprocess(df, to_csv=True, to_pickle=False, verbose=True):
+def preprocess(df, to_csv=False, to_pickle=False, verbose=True):
     verboseprint = define_print(verbose=verbose)
     pandarallel.initialize(progress_bar=True)
     filterwords = load_filter()
@@ -234,18 +234,13 @@ def sort_topics(df, to_csv=True, to_pickle=False, verbose=True):
     return dfs_dict
 
 
-def get_N_matrix(topic, verbose=True, drop_subsumed=True, drop_medium_specific=True):
+def get_N_matrix(df, verbose=True, drop_subsumed=True, drop_medium_specific=True):
     verboseprint = define_print(verbose=verbose)
     MEDIA = media
     cv = CountVectorizer(max_df=0.9, min_df=10, max_features=10000, ngram_range=(1, 3))
-
-    verboseprint("importing dataframe with topic " + topic + " and fitting model...")
-    try:
-        df = pd.read_csv("data/sorted/" + topic + ".csv", index_col=0)
-    except:
-        df = pd.read_pickle("data/sorted/" + topic + ".pkl")
+    topic = df.iloc[0]['topic']
+    verboseprint("fitting cv model for topic " + topic + "...")
     cv.fit(df["preprocessed"])
-
     verboseprint("restructuring dataframe with " + str(len(df)) + " transcripts...")
     df["preprocessed"] = df["preprocessed"] + " "
     df = df[["medium", "preprocessed", "topic"]]

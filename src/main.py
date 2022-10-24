@@ -1,15 +1,19 @@
 import pandas as pd
 import numpy as np
+from sklearn.feature_extraction.text import CountVectorizer
+from bertopic import BERTopic
 from pandarallel import pandarallel
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtubesearchpython import Playlist, Channel, Video, Transcript, playlist_from_channel_id
+from youtubesearchpython import Playlist, Channel, Video, playlist_from_channel_id
 from tqdm import tqdm
+from utils import filter_N_by_information_score, get_N_matrix, preprocess, load_filter
 tqdm.pandas()
-pandarallel.initialize(progress_bar=True)
+
+
 
 def fetch_video_transcript(video_id):
     try:
-        return YouTubeTranscriptApi.get_transcript(video_id, languages=["de", 'en'])
+        return YouTubeTranscriptApi.get_transcript(video_id=video_id, languages=["de"])
     except:
         return np.nan
 
@@ -17,13 +21,15 @@ def fetch_video_info(video_id):
     info = Video.getInfo(video_id)
     return [info["title"], info["duration"]["secondsText"], info["publishDate"], info["description"], info["category"]]
 
-def scrape_videos(channel_id):
+def get_raw_df(channel_id):
+    pandarallel.initialize(progress_bar=True)
     df = pd.DataFrame(columns=["medium","title","id","duration","transcript","date","description","category"])
+    print('fetching videos...')
     channel = Channel.get(channel_id)
-    
     playlist = Playlist(playlist_from_channel_id(channel["id"]))
     while playlist.hasMoreVideos:
         playlist.getNextVideos()
+    print('fetching metadata and transcripts...')
     df['id'] = [video.get("id") for video in tqdm(playlist.videos)]
     df['transcript'] = df['id'].parallel_apply(fetch_video_transcript)
     df['medium'] = channel.get("title")
@@ -40,7 +46,7 @@ def transcript_by_minute(transcript):
         transcript_by_minute[segment['minute']] += (segment['text'] + ' ')
     return transcript_by_minute
 
-def get_transcript_by_minute_df(df):
+def get_minutewise_df(df):
     df = df.dropna(subset=['transcript'])
     df['transcript_by_minute'] = df['transcript'].parallel_apply(transcript_by_minute)
     temp_df = pd.DataFrame([*df['transcript_by_minute']], df.index).stack()\
@@ -48,6 +54,21 @@ def get_transcript_by_minute_df(df):
     new_df = pd.concat([temp_df, df.drop(columns=['transcript', 'transcript_by_minute'])], join='outer', axis=1)
     new_df = new_df[['medium', 'id', 'title', 'description', 'duration', 'date', 'category', 'minute', 'transcript']]
     return new_df
+
+def get_topic_df(df, save_model=True):
+    stop_words = frozenset(load_filter())
+    df.dropna(subset=['transcript'], inplace=True)
+    docs = df['transcript'].astype(str).to_numpy()
+    vectorizer_model = CountVectorizer(stop_words=stop_words, ngram_range=(1,1))
+    topic_model = BERTopic(vectorizer_model = vectorizer_model, verbose=1, language='multilingual', min_topic_size=500)
+    topics, _ = topic_model.fit_transform(docs)
+    topic_info = topic_model.get_topic_info()
+    topic_dict = pd.Series(topic_info.Name.values,index=topic_info.Topic).to_dict()
+    df['topic'] = topics
+    df['topic'] = df['topic'].apply(lambda row: topic_dict[row])
+    if save_model:
+        topic_model.save('assets/bertopic_model')
+    return df
 
 channels = {
     'junge Welt': 'UC_wVoja0mx0IFOP8s1nfRSg',
@@ -76,10 +97,16 @@ channels = {
 }
 
 def main():
+    '''data_df = pd.DataFrame()
     for name, id in channels.items():
-        df = pd.read_pickle(f'data/raw/{name}.pkl')
-        df_new = get_transcript_by_minute_df(df)
-        df_new.to_pickle(f'data/topics_by_minute/{name}_topics_by_minute.pkl')
+        raw_df = get_raw_df(id)
+        minutewise_df = get_minutewise_df(raw_df)
+        data_df = pd.concat([data_df, minutewise_df], axis=0)'''
+    data_df = pd.read_pickle('data/data.pkl')
+    topic_df = get_topic_df(data_df)
+    topic_df.to_pickle('data/topic.pkl')
+    #preprocessed_df = preprocess(topic_df)
+    #preprocessed_df.to_pickle('data/data.pkl')
 
 if __name__ == "__main__":
-    main()
+    main() 
